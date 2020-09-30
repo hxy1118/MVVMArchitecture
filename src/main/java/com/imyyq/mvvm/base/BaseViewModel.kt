@@ -21,11 +21,9 @@ import com.imyyq.mvvm.utils.isInUIThread
 import com.kingja.loadsir.callback.Callback
 import io.reactivex.disposables.CompositeDisposable
 import io.reactivex.disposables.Disposable
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.cancel
+import kotlinx.coroutines.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.launch
 import retrofit2.Call
 import java.lang.reflect.ParameterizedType
 import java.lang.reflect.Type
@@ -47,6 +45,7 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
 
     private lateinit var mCompositeDisposable: Any
     private lateinit var mCallList: MutableList<Call<*>>
+    private lateinit var mCoroutineScope: CoroutineScope
 
     internal val mUiChangeLiveData by lazy { UiChangeLiveData() }
 
@@ -73,7 +72,8 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
         onFailed: ((code: Int, msg: String?) -> Unit)? = null,
         onComplete: (() -> Unit)? = null
     ) {
-        viewModelScope.launch {
+        initCoroutineScope()
+        mCoroutineScope.launch {
             try {
                 HttpHandler.handleResult(block(), onSuccess, onResult, onFailed)
             } catch (e: Exception) {
@@ -84,11 +84,18 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
         }
     }
 
+    private fun initCoroutineScope() {
+        if (!this::mCoroutineScope.isInitialized) {
+            mCoroutineScope = CoroutineScope(Job() + Dispatchers.Main)
+        }
+    }
+
     /**
      * 发起协程，让协程和 UI 相关
      */
     fun launchUI(block: suspend CoroutineScope.() -> Unit) {
-        viewModelScope.launch { block() }
+        initCoroutineScope()
+        mCoroutineScope.launch { block() }
     }
 
     /**
@@ -141,7 +148,9 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
             mCallList.forEach { it.cancel() }
             mCallList.clear()
         }
-        viewModelScope.cancel()
+        if (this::mCoroutineScope.isInitialized) {
+            mCoroutineScope.cancel()
+        }
     }
 
     /**
@@ -211,7 +220,6 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
 
     // 以下是界面开启和结束相关的 =========================================================
 
-    @MainThread
     fun setResult(
         resultCode: Int,
         map: ArrayMap<String, *>? = null,
@@ -220,13 +228,11 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
         setResult(resultCode, Utils.getIntentByMapOrBundle(map = map, bundle = bundle))
     }
 
-    @MainThread
     fun setResult(resultCode: Int, data: Intent? = null) {
         CheckUtil.checkStartAndFinishEvent(mUiChangeLiveData.setResultEvent)
         LiveDataBus.send(mUiChangeLiveData.setResultEvent!!, Pair(resultCode, data))
     }
 
-    @MainThread
     fun finish(
         resultCode: Int? = null,
         map: ArrayMap<String, *>? = null,
@@ -235,7 +241,6 @@ open class BaseViewModel<M : BaseModel>(app: Application) : AndroidViewModel(app
         finish(resultCode, Utils.getIntentByMapOrBundle(map = map, bundle = bundle))
     }
 
-    @MainThread
     fun finish(resultCode: Int? = null, data: Intent? = null) {
         CheckUtil.checkStartAndFinishEvent(mUiChangeLiveData.finishEvent)
         LiveDataBus.send(mUiChangeLiveData.finishEvent!!, Pair(resultCode, data))

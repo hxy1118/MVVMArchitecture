@@ -1,3 +1,5 @@
+@file:Suppress("UNCHECKED_CAST")
+
 package com.imyyq.mvvm.app
 
 import androidx.collection.ArrayMap

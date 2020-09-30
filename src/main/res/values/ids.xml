@@ -5,4 +5,8 @@
 
     <item name="multiClickFrequency" type="id"/>
     <item name="multiClickLastTime" type="id"/>
+
+    <item name="tobBarRightSearch" type="id"/>
+    <item name="articlePageLeftBack" type="id"></item>
+    <item name="articlePageRightBrowser" type="id"></item>
 </resources>
